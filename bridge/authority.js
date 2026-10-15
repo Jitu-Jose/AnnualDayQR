@@ -129,7 +129,8 @@ export class ScannerAuthority {
     if (this.env.STAGING_ATTENDANCE_ENABLED !== 'true') return response(503, { code: 'BACKEND_NOT_CONFIGURED' });
     if (Object.keys(body).sort().join(',') !== 'action,requestId,token' ||
         !/^[a-f0-9-]{36}$/.test(body.requestId || '') || typeof body.token !== 'string' ||
-        !body.token.trim() || body.token.length > 512 || /[\x00-\x20\x7f]/.test(body.token.trim())) {
+        !body.token.trim() || body.token.length > 512 || [...body.token.trim()].some((char) =>
+          char.charCodeAt(0) <= 32 || char.charCodeAt(0) === 127)) {
       return response(400, { code: 'INVALID_REQUEST' });
     }
     const outcome = await submitStagingAttendance(this.env,device,body);
