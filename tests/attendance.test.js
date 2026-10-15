@@ -29,6 +29,17 @@ test('provision once and automatically submit valid badge with normalized token'
   assert.equal(f.reports.at(-1),'ENTRY_OK'); assert.equal(f.client.pending,null);
   assert.equal([...f.memory.values()].some((value) => value.includes('STAGE1')),false);
 });
+test('default browser transport calls fetch with the global receiver', async () => {
+  const original = globalThis.fetch;
+  try {
+    globalThis.fetch = function () {
+      assert.equal(this,globalThis);
+      return Promise.resolve(json(session));
+    };
+    const client = new AttendanceClient({ storage:{ getItem:(name) => name.includes('pending') ? null : credential } });
+    assert.equal((await client.restore()).role,'GATE');
+  } finally { globalThis.fetch = original; }
+});
 test('missing token, malformed QR and wrong badge deployment never send attendance', async () => {
   const f = fixture(); await f.client.provision('synthetic-code');
   for (const raw of ['bad',base,base+'?t=',base+'?t=a&t=b',base.replace('SYNTHETIC','OTHER')+'?t=a']) await f.client.scan(raw);

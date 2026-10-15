@@ -182,7 +182,7 @@ can be completed here. It never opens production:
 
 ## Tests and capacity
 
-Local validation: 59 offline unit cases pass, plus the credential-pattern check.
+Local validation: 60 offline unit cases pass, plus the credential-pattern check.
 They cover Gate/Meal success and duplicates, invalid/inactive badges, QR shape,
 missing tokens, unauthorized/cross-role requests, signature tampering/expiry,
 concurrent mock submissions, lock contention, atomic-batch failure recovery,

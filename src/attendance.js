@@ -11,7 +11,7 @@ const pendingKey = 'annual-day-staging-pending-v1';
 
 // Same-origin /api route is required. No spreadsheet ID or signing key in JS.
 export class AttendanceClient {
-  constructor({ storage, network = fetch, report = () => {}, timeoutMs = 20000 }) {
+  constructor({ storage, network = (...args) => globalThis.fetch(...args), report = () => {}, timeoutMs = 20000 }) {
     this.storage = storage; this.network = network; this.report = report; this.timeoutMs = timeoutMs;
     this.session = null; this.pending = null; this.busy = false;
   }
