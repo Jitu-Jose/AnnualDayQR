@@ -1,37 +1,12 @@
 import { test, expect } from '@playwright/test';
 import QRCode from 'qrcode';
+import { fakeCamera } from './helpers/fake-camera.js';
 
 const badge = 'https://script.google.com/macros/s/TEST_DEPLOYMENT/exec?t=SYNTHETIC_ONLY';
 
-async function fakeCamera(page, qr = badge, deny = false) {
-  const dataUrl = await QRCode.toDataURL(qr, { width: 480, margin: 5 });
-  await page.addInitScript(({ dataUrl, deny }) => {
-    window.testDenyCamera = deny;
-    navigator.mediaDevices.getUserMedia = async () => {
-      if (window.testDenyCamera) throw new DOMException('Permission denied', 'NotAllowedError');
-      const canvas = document.createElement('canvas');
-      canvas.width = canvas.height = 960;
-      const context = canvas.getContext('2d');
-      const image = new Image();
-      image.src = dataUrl;
-      await image.decode();
-      window.testSetQr = async (nextDataUrl) => { image.src = nextDataUrl; await image.decode(); };
-      const draw = () => {
-        context.fillStyle = 'white';
-        context.fillRect(0, 0, 960, 960);
-        context.drawImage(image, 240, 240);
-        requestAnimationFrame(draw);
-      };
-      draw();
-      const stream = canvas.captureStream(15);
-      window.testStream = stream;
-      return stream;
-    };
-  }, { dataUrl, deny });
-}
 
 test('decodes QR continuously in browser, stops tracks, never sends QR externally', async ({ page }) => {
-  await fakeCamera(page);
+  await fakeCamera(page, badge);
   const external = [];
   page.on('request', (request) => {
     const url = new URL(request.url());
@@ -72,7 +47,7 @@ test('unrecognized QR is rejected without following its URL', async ({ page }) =
 });
 
 test('refresh resets camera and counter; offline never claims attendance', async ({ page, context }) => {
-  await fakeCamera(page);
+  await fakeCamera(page, badge);
   await page.goto('/');
   await page.getByRole('button', { name: 'Start camera' }).click();
   await expect(page.locator('#count')).not.toHaveText('0', { timeout: 15000 });
@@ -85,7 +60,7 @@ test('refresh resets camera and counter; offline never claims attendance', async
 });
 
 test('camera interruption offers restart', async ({ page }) => {
-  await fakeCamera(page);
+  await fakeCamera(page, badge);
   await page.goto('/');
   await page.getByRole('button', { name: 'Start camera' }).click();
   await expect(page.locator('#camera-status')).toContainText('Camera active');
@@ -94,3 +69,4 @@ test('camera interruption offers restart', async ({ page }) => {
   await page.getByRole('button', { name: 'Restart camera' }).click();
   await expect(page.locator('#camera-status')).toContainText('Camera active');
 });
+

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { assertAllowedFingerprint, assertStagingTarget, PROTECTED_SPREADSHEET_SHA256 } from '../scripts/staging-safety.js';
+import { assertAllowedFingerprint, assertStagingTarget, assertStagingLoadTarget, PROTECTED_SPREADSHEET_SHA256 } from '../scripts/staging-safety.js';
 
 const syntheticId = 'SYNTHETIC_STAGING_ONLY_0001';
 const config = () => ({ environment: 'staging', spreadsheetId: syntheticId,
@@ -36,5 +36,14 @@ test('non-allowlisted targets and malformed allowlists are rejected', () => {
 test('write enablement cannot be smuggled into preparation configuration', () => {
   for (const attendanceWritesEnabled of [undefined, true, 'false', 0]) {
     assert.throws(() => assertStagingTarget({ ...config(), attendanceWritesEnabled }), /disabled/);
+  }
+});
+test('load runner requires separate explicit enablement and exact origin allowlisting', () => {
+  const value = { ...config(),attendanceWritesEnabled:true,scannerOrigin:'https://staging.example.invalid',
+    allowedStagingOrigins:['https://staging.example.invalid'] };
+  assert.equal(assertStagingLoadTarget(value).origin,'https://staging.example.invalid');
+  for (const change of [{ attendanceWritesEnabled:false },{ allowedStagingOrigins:[] },
+    { scannerOrigin:'http://staging.example.invalid' },{ environment:'production' },{ allowedStagingSpreadsheetIds:[] }]) {
+    assert.throws(() => assertStagingLoadTarget({ ...value,...change }));
   }
 });

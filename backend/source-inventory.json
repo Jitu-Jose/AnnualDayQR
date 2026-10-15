@@ -1,0 +1,70 @@
+{
+  "origin": "Owner-supplied sanitized ZIP; reviewed locally; raw export not published",
+  "files": [
+    {
+      "file": "Approval.js",
+      "bytes": 4124,
+      "sha256": "5968f43bf8a57fe03c9110a75b15fcfc3ec5536a21289cfd09cb89c6ffb4eea2"
+    },
+    {
+      "file": "Badges.js",
+      "bytes": 15577,
+      "sha256": "7fb834b5c04389aab55cd992916afc1392ecac6d317b51a86ceac8b4ff75eef9"
+    },
+    {
+      "file": "Code.js",
+      "bytes": 29,
+      "sha256": "8e340fe672eb2757b5709d836d04181c12ee67b6b6e912caa29338a366386b1a"
+    },
+    {
+      "file": "Config.js",
+      "bytes": 635,
+      "sha256": "e12f9d4ef8a4174bc89125d41bf665373ee79d563924a0974dee73d0a08e2040"
+    },
+    {
+      "file": "Dashboard.js",
+      "bytes": 10651,
+      "sha256": "c8d6d2608b364d8674d41095ffd88b9d90dc6b8b61bfcd4b61ed237ba3ac14bb"
+    },
+    {
+      "file": "Registration.js",
+      "bytes": 5037,
+      "sha256": "063124141c27ffca018bee8e173df9dabbb164f992438f8d9db73e51bec79150"
+    },
+    {
+      "file": "SANITIZATION-NOTES.txt",
+      "bytes": 2034,
+      "sha256": "4564735dae9feb24ec489dce388c2a74645ac9dd358a07a60c40305cbc2a6107"
+    },
+    {
+      "file": "Setup.js",
+      "bytes": 27840,
+      "sha256": "e7899276359ff8a6df8762d078234a21f0aa243851b0008ca1a505c6890a42a1"
+    },
+    {
+      "file": "Utils.js",
+      "bytes": 3760,
+      "sha256": "018ee0f06dcc44643958b3836d3d5a71675c86fda250302ec7018c555c0b8952"
+    },
+    {
+      "file": "VolunteerAuth.js",
+      "bytes": 8187,
+      "sha256": "7a88bea23b143ff551a2556f79432992351a3fa6bdb941852e74e0878b2095db"
+    },
+    {
+      "file": "VolunteerScanner.js",
+      "bytes": 7339,
+      "sha256": "8ad989219a5ac09a0e0e61fe3567556fb09a0efedbf2228ecef1a170aae8743f"
+    },
+    {
+      "file": "WebApp.js",
+      "bytes": 20580,
+      "sha256": "539280364ffe74506dcbaaa0006a6c60d65473ac3463ed59a7a1149bcbc06e2e"
+    },
+    {
+      "file": "appsscript.json",
+      "bytes": 204,
+      "sha256": "468928af3d7ab2b62309df74de96ec5f1a25773d0798896e31583e05e39e1b32"
+    }
+  ]
+}

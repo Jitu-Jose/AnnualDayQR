@@ -17,8 +17,7 @@ const same = (left, right) => {
   return difference === 0;
 };
 
-// Staging-only authorization implementation. No sheet access or attendance
-// adapter is present. One Durable Object is the authority for the staging event.
+// One Durable Object is the authority for the isolated staging event.
 export class ScannerAuthority {
   constructor(state, env) { this.storage = state.storage; this.env = env; }
 
@@ -124,10 +123,20 @@ export class ScannerAuthority {
     }
     if (path === '/session') return response(200, {
       deviceId: device.deviceId, role: device.role, expiresAt: device.expiresAt, environment: 'staging',
+      badgeBase: this.env.BADGE_BASE || '',
     });
     if (body.action !== device.role) return response(403, { code: 'ROLE_FORBIDDEN' });
-    // Deliberately fail closed until actual Apps Script source/schema is reviewed.
-    // No token lookup, backend fetch or write is implemented or enabled here.
-    return response(503, { code: 'BACKEND_NOT_CONFIGURED' });
+    if (this.env.STAGING_ATTENDANCE_ENABLED !== 'true') return response(503, { code: 'BACKEND_NOT_CONFIGURED' });
+    if (Object.keys(body).sort().join(',') !== 'action,requestId,token' ||
+        !/^[a-f0-9-]{36}$/.test(body.requestId || '') || typeof body.token !== 'string' ||
+        !body.token.trim() || body.token.length > 512 || /[\x00-\x20\x7f]/.test(body.token.trim())) {
+      return response(400, { code: 'INVALID_REQUEST' });
+    }
+    const outcome = await submitStagingAttendance(this.env,device,body);
+    const retry = ['BACKEND_NOT_CONFIGURED','BACKEND_ERROR','WRITES_DISABLED','BUSY_RETRY'].includes(outcome.code);
+    return response(retry ? 503 : outcome.code === 'REQUEST_CONFLICT' ? 409 :
+      outcome.code === 'SCANNER_NOT_AUTHORIZED' ? 401 : 200,outcome);
   }
 }
+import { submitStagingAttendance } from './backend.js';
+

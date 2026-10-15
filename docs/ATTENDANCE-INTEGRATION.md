@@ -1,234 +1,246 @@
-# Attendance integration preparation — 15 October 2026
+# Staging attendance integration — 15 October 2026
 
-Status: backend implementation is blocked on authoritative source and schema.
-This branch adds isolated safety checks, a staging authorization bridge and an implementation plan. It does not
-enable attendance, change the camera workflow, or claim staging acceptance.
+Implementation is in draft PR #2. Production access, modification, testing and
+activation remain prohibited. No production spreadsheet or Google API has been
+contacted. No Cloudflare or Apps Script deployment has been created. All present
+attendance evidence is from isolated local mocks. This document supersedes the
+older camera-phase architecture/deployment assumptions in other documentation.
 
-## Verified repository state
+## Source inspection and confirmed rules
 
-Inspected main at `9a105b118830bb330210747edf7956c6ebf60b47` through the GitHub connector.
-The complete repository tree contains no `.gs` files or spreadsheet schema.
-`src/main.js` uses `qr-scanner` 1.4.2, retains a continuous camera stream, debounces
-decoded values and shows camera-only results. `src/qr.js` checks Apps Script URL
-shape and optionally an exact base. There is no login UI, attendance request,
-device provisioning, Gate/Meal selector or backend in the current application.
-The exact real badge deployment and token grammar remain unverified.
+All 13 files in the owner-supplied ZIP were inspected, including
+SANITIZATION-NOTES.txt. Their names, lengths and SHA-256 fingerprints are in
+backend/source-inventory.json. The raw export is kept outside the public
+repository; some diagnostic helpers still contain sample PIN/token literals,
+which were not copied into code, fixtures, logs or public documentation.
 
-The main-branch Actions run 38721848589 reports success for the camera deployment.
-This is deployment evidence, not a new physical iPhone/Android acceptance test.
-The live page itself was not fetched. Older architecture/deployment documents
-describe earlier access failures; GitHub connector repository access now works.
-Shell Git cloning failed because the configured proxy could not be reached;
-source inspection was completed using the connector instead.
-
-## Required owner input
-
-Provide a sanitized export of the current Apps Script project, including HTML,
-manifest, redacted configuration, and any deployed version that differs from the
-editor. Preserve function names, signatures and control flow. Include definitions
-and callers of `attendeeByToken_`, `recordBadgeAction`, `logActivity_`, `ss_`,
-`doGet`, `doPost`, authorization helpers and all attendance writers. Include shared
-registration, approval and trigger code so locking and eligibility can be audited.
-Likely filenames mentioned in older documentation are Config.gs, Utils.gs,
-Setup.gs, Registration.gs, Approval.gs, WebApp.gs, Badges.gs, Dashboard.gs,
-VolunteerAuth.gs and VolunteerScanner.gs; actual filenames may differ. No setup
-or migration function will be run.
-
-Provide exact ordered headers for Attendees and Activity, synthetic example rows,
-timestamp cell types/timezone, active/approval status values, token grammar and
-case sensitivity, attendance columns and the current Meal-before-Gate rule.
-Provide the badge URL base without any real token, deployment execution/access
-settings, and a trigger inventory without secrets. Do not export live attendee
-rows, phone numbers, PINs, session values or signing keys.
-
-There is no configured Google Sheets/Apps Script management connection here.
-An owner must supply a separate staging spreadsheet and project or create them
-using the finalized schema instructions. A spreadsheet URL alone grants no access.
-
-## Authorization architecture — bridge implementation approved
-
-Preferred additional component: a Cloudflare Worker plus a strongly consistent
-Durable Object for device authorization/provisioning and rate controls. Do not use
-eventually consistent KV as the authoritative revocation store. No resources have
-been purchased, created or deployed.
-
-The owner approved bridge implementation without paid provisioning or production
-deployment. `bridge/authority.js` now implements staging-only admin provisioning,
-atomic one-time enrollment, twelve-hour role-bound device sessions, authoritative
-revocation, hashed device secrets and coarse durable enrollment/admin limits.
-`bridge/worker.js` implements exact-origin CORS and routes to that authority.
-The attendance route rejects cross-role actions and returns BACKEND_NOT_CONFIGURED
-for authorized actions. It cannot call Apps Script or write attendance. The code
-has only been tested locally with a storage double, not in Cloudflare.
-
-1. An authenticated administrator creates a short-lived, single-use, high-entropy
-   provisioning code for one device and one role. Store only its digest. Redeem
-   atomically with expiry, attempt limits and a fixed role. Deliver out of band;
-   never put a reusable credential in a URL, public bundle or attendee QR.
-2. One-time provisioning on the phone establishes a random device bearer secret.
-   Keep its digest, role, event, environment, expiry and revoked flag server-side.
-   A dedicated Pages origin stores the secret locally for shift recovery; every
-   request supplies it over HTTPS in an Authorization header. Never log it.
-   Refresh restores the role from the server; role cannot come from a dropdown.
-3. Validate the authoritative device record for every write. Reject expired or
-   revoked devices and cross-role requests. Do not cache positive authorization.
-   Revocation blocks subsequent authorizations; a request already authorized and
-   in flight may finish. Document this boundary for administrators.
-4. Worker sends a signed, time-limited POST envelope to the separate Apps Script
-   adapter. Bind device ID, role, environment, request ID and attendee token to
-   the signature. Use backend-only secrets, constant-time digest comparison,
-   bounded payloads, timestamp validation and durable replay/idempotency checks.
-   Apps Script must verify authorization before any sheet lookup or write.
-5. Exact Pages-origin CORS allowlist and preflight permit readable browser
-   responses. CORS is supplementary. Reject unauthenticated calls regardless of
-   origin. Do not use JSONP, state-changing GET or opaque no-cors requests.
-   Follow only expected Google response redirects server-side; do not forward
-   credentials to arbitrary redirect targets. Prove behavior in staging.
-
-Persistent browser bearer secrets are exportable by someone holding the phone or
-by same-origin XSS. Device roles limit damage; expiry, revocation, strict CSP,
-no third-party scripts and managed phones reduce risk. Do not describe this as
-hardware-bound identity. GitHub Pages projects on the same hostname share an
-origin and localStorage; dedicate an origin/custom domain to the scanner before
-persisting credentials. If that cannot be provided, consider serving the same
-camera app at the bridge origin with Secure HttpOnly SameSite cookies, explicit
-CSRF protection and server-side sessions. Test iOS behavior; cross-site cookie
-sessions from Pages to a workers.dev host are unreliable under browser privacy
-restrictions. This hosting choice needs approval before implementation.
-
-Apps Script alone could host an HTMLService UI using google.script.run, but moving
-the working camera into its embedded environment requires fresh physical-phone
-validation. Direct GitHub Pages fetch to Apps Script cannot be assumed to provide
-usable preflight, redirects, custom authorization or response headers. A bridge
-keeps the proven camera architecture and gives control over those behaviors.
-
-Planning cost estimate (not a verified current vendor quote): 6,000 attendees
-times two actions is about 12,000 successful calls, plus authorization, retries,
-duplicates and load tests. Budget up to roughly 50,000 event requests initially.
-A Worker paid-plan baseline has historically been about US$5/month plus usage;
-reserve US$5–15 for a month of modest Worker/Durable Object usage, excluding
-Google Workspace and an optional domain. Verify current pricing, account quotas,
-CPU/storage charges and free-tier eligibility before approval or provisioning.
-Set budget alerts; do not automatically upgrade plans. Request count alone does
-not establish affordability or capacity under an attack or repeated polling.
-
-## Data integrity design decisions blocked on source
-
-Preserve existing Gate/Meal columns, rules and log format. Do not trim, lowercase
-or otherwise transform tokens until their actual grammar is known; URL decoding
-already occurs once in URLSearchParams. Require an exact verified badge base for
-attendance and independently enforce eligibility server-side.
-
-All writers, including legacy routes, must share the same concurrency mechanism.
-A ScriptLock in a new staging/production project does not coordinate with a lock
-in another project. Inspect existing writers before choosing the deployment
-boundary. Never claim atomicity across two projects using separate ScriptLocks.
-
-Checking duplicates, preserving original timestamps, writing attendance and
-logging an audit event must form one recoverable operation. Independent setValue
-and appendRow calls are not a transaction; a crash between them can lose audits.
-Investigate one atomic Sheets batchUpdate for cell and audit changes after schema
-inspection, or an approved durable journal/reconciliation design. Examine all
-concurrent registration and Activity append behavior before selecting either.
-Do not add production columns or a journal tab without approval.
-
-Bind idempotency to device, role, environment, request ID and payload. Conflicting
-reuse must be rejected. A timeout is an uncertain result: retry the same request
-ID, with server-side duplicate protection even if browser state is lost. Return
-the original timestamp on duplicates. Never report success before a confirmed
-commit. Define retention and reconciliation before claiming exactly-once audits.
-
-## Isolated staging preparation
-
-`config/staging.example.json` deliberately fails closed until filled locally with
-an actual new staging ID and explicit allowlist. It contains no production ID.
-Do not commit the populated configuration or credentials. The local helper
-`scripts/staging-safety.js` checks staging mode, exact allowlisting, a SHA-256
-deny fingerprint for the owner-supplied live spreadsheet and disabled writes.
-The fingerprint catches the live target even if accidentally allowlisted. This
-helper performs no network calls. It is preparation, not a deployed server guard.
-
-Future integration/load runners must call the guard before constructing a Google
-client; the staging backend must independently enforce the same isolation.
-The currently enforced false write flag intentionally cannot run a load test.
-Any later staging-write runner needs its own reviewed safety checks and isolated
-deployment credentials. Never put a production credential or literal production
-spreadsheet ID in tests or CI. Never use production as a negative network test.
-
-After source review:
-
-1. Finalize a header manifest from the export; fail on unknown/missing/duplicate
-   headers. A staging schema is intentionally not invented in this branch.
-2. Owner creates a new spreadsheet and standalone staging Apps Script project.
-   Populate synthetic records only, with clearly separate token namespace.
-   Do not copy a live workbook or run SETUP_V2. Reproduce only reviewed required
-   tabs/headers and create no production triggers.
-3. Record staging spreadsheet/project/deployment IDs in protected configuration.
-   Use new staging secrets and isolated access. Keep production activation absent.
-4. Deploy the adapter and bridge only after authorization design approval.
-   Test missing/incorrect credentials, role tampering, revoked devices, replay,
-   redirect handling and readable confirmations before testing attendance.
-5. Seed only synthetic attendees in this isolated staging environment using a
-   reviewed explicit seed tool. Final schema/seed tooling awaits source review.
-
-## Acceptance and capacity evidence still required
-
-| Requested cases | Current evidence |
+| Export file | Findings relevant to integration |
 | --- | --- |
-| Invalid/missing/malformed QR, exact deployment mismatch, local repeat suppression | Existing offline QR unit tests pass |
-| Staging allowlist, protected fingerprint, malformed/missing config, disabled writes | New offline safety tests pass |
-| Valid/duplicate Gate and Meal; inactive attendee | Blocked on source/schema and staging |
-| Unauthorized, cross-role and revoked scanner | Offline bridge tests pass; no deployed auth |
-| Concurrent same badge; audit partial failure | No backend tests yet |
-| Timeout, uncertain retry, refresh recovery | No attendance transport yet |
-| Continuous multi-attendee phone scanning | Existing camera reported tested by owner; attendance phone testing pending |
-| Backend errors and actual staging/production isolation | Deployment tests pending; local preflight alone is insufficient |
+| Config.js | Badge web-app URL redacted; event is in India |
+| Utils.js | Explicit spreadsheet property with active-sheet fallback; token lookup trims/uppercases; logger writes 10 columns |
+| WebApp.js | Token GET renders badge; default GET renders HR portal; recordBadgeAction validates volunteer session, locks, checks Active status, then writes attendance and audit separately |
+| VolunteerAuth.js | Gate/Meal authorization; cached sessions and rechecked account status; no device provisioning |
+| VolunteerScanner.js | Login and read-only lookup; diagnostic helpers; no automatic attendance integration |
+| Approval.js | Approval and status updates use the same script lock; can append attendee rows |
+| Registration.js | Existing registration logic and form trigger; temporary IDs protected by script lock |
+| Badges.js | QR is WEB_APP_URL + ?t=token; printing/guest helpers can modify sheets and must not be run |
+| Setup.js | Destructive setup/clear, form changes and trigger replacement; reviewed as text only |
+| Dashboard.js | Reads registration/attendee data and rewrites dashboard output; not executed |
+| Code.js | Empty myFunction placeholder |
+| appsscript.json | Declares deployer execution and anonymous access; actual deployment is unverified |
+| SANITIZATION-NOTES.txt | Provides source-derived schema, cautions and redaction inventory |
 
-The existing Actions validation already runs tests/*.test.js on PRs, so it includes
-the added safety tests without changing deployment behavior. Local verification:
-`node --test tests/*.test.js` and `node scripts/check-secrets.js` pass. No npm
-dependency installation, lint, build or browser tests were run locally in this
-environment. No Google API was contacted.
+The owner supplied current ordered headers; they exactly match the 14 Attendees
+and 10 Activity headers declared in backend/Attendance.gs. Entry Time, Meal Time
+and QR Token remain the existing fields. Active means exactly `Active`. Tokens
+are trimmed and uppercased. Gate/Meal timestamps are written only when blank;
+duplicate scans preserve the original timestamp and do not add an Activity row.
+Meal service has no Gate prerequisite. Staging preserves these rules. No badge
+URL or existing QR token is regenerated.
 
-For individual local test output use
-`node --test --test-isolation=none --test-reporter=spec tests/*.test.js`:
-25 cases pass, including atomic provisioning-code redemption, expired sessions,
-revocation, role tampering and safe backend unavailability. These are unit tests,
-not proof of real Durable Object concurrency or Google attendance correctness.
+## Implementation
 
-Staging load plan: generate 6,000 synthetic attendees only after schema review.
-Start with one scanner, then 2, 4, 8 and 16 concurrent devices at expected scan
-cadence. Include same-badge races, duplicate bursts, mixed Gate/Meal, dropped
-responses and injected audit/write failures. Bound the run by count and duration,
-stop on quota pressure or sustained failures, and never delete evidence as part
-of a test. Measure latency p50/p95/p99, lock wait/timeout, execution concurrency,
-quota errors, throughput, retry rates, and final timestamp/audit invariants.
-Reconcile against the synthetic input set without reading production.
-Use the observed operating envelope to select scanner count and headroom. No
-attendance throughput or support for 6,000 attendees has been measured or claimed.
+- backend/Attendance.gs is a new **staging-only standalone** adapter. It does not
+  import or replace the registration system. The only web entry points are a
+  read-only rejection from doGet and authenticated doPost. All other helpers
+  have private trailing-underscore names.
+- bridge/authority.js implements administrator provisioning, atomic five-minute
+  single-use codes, twelve-hour device sessions, role binding and revocation.
+  Enrollment/admin traffic has coarse durable limits; edge limits are still
+  required. Device credentials are stored as digests on the server.
+- bridge/backend.js signs a time-limited HMAC POST envelope, binding request ID,
+  device, role, normalized token, staging environment and audience. It validates
+  backend response codes and confirmed timestamps. ContentService redirects can
+  only become GET requests to script.googleusercontent.com/macros/echo; secrets
+  and POST bodies are not forwarded to the redirect.
+- src/attendance.js retains an unresolved request ID/token in tab sessionStorage
+  for safe retry and refresh recovery. Only one request is in flight per client.
+  It does not show green before server acknowledgement. New scans wait while an
+  unresolved request needs retry, but the camera remains active.
+- staging.html uses the existing qr-scanner camera engine and adds one-time
+  provisioning, server role, green/amber/red feedback and Retry. The ordinary
+  index.html camera test remains the default Pages build. `build:staging` writes
+  a separate dist-staging artifact; it is never uploaded by the Pages workflow.
+- scripts/load-staging.js is a bounded manual runner with staging spreadsheet ID
+  deny fingerprint, ID/origin allowlists, mandatory staging session and synthetic
+  token namespace. It stops on errors. CI never invokes it.
 
-## Activation, rollback and volunteer workflow
+## Atomicity, retries and isolation
 
-Production release remains blocked until source review, staging acceptance,
-phone tests, capacity evidence, registration/HR regression checks and explicit
-owner approval. PR merge or Pages deployment must never activate a write flag.
-Prepare separate production configuration outside public assets, reviewed
-versioned Apps Script deployment, and an independently controlled server-side
-write enablement step only after approval. No production schema changes are
-authorized by this preparation.
+The staging adapter validates environment, exact standalone script ID, a server
+spreadsheet allowlist and the protected live-sheet fingerprint before any sheet
+open. It never falls back to an active spreadsheet. A separate server write gate
+starts false. A valid bridge signature and recent timestamp are required before
+lookup or write; a badge QR alone never grants authority. Every bridge request
+rechecks the authoritative device record and rejects cross-role actions.
 
-Preparation rollback: revert this branch's additions. Camera assets are unchanged.
-Later integration rollback: disable writes server-side, revoke device sessions,
-restore the previously reviewed frontend/backend versions, preserve every
-recorded timestamp and audit row, and reconcile uncertain requests. Do not clear
-attendance or invoke setup. Rotation of production secrets requires approval.
+One ScriptLock encloses lookup, duplicate check and commit. A single Sheets API
+batchUpdate commits the attendance cell, existing-format Activity row and a
+private staging ScannerRequests retry journal atomically. The journal binds the
+request key to device, role and token digest. Exact replay returns the original
+response; conflicting reuse fails. A lost response after commit therefore does
+not lose an audit row or overwrite a timestamp on retry. The tests simulate both
+precommit failure and a lost postcommit response.
 
-Planned volunteer instructions: administrator provisions the correct Gate/Meal
-device once; volunteer starts the camera and checks the displayed server role.
-Keep scanning after each confirmed result. Green ENTRY OK/MEAL OK confirms a
-commit; amber ALREADY ENTERED/MEAL ALREADY SERVED preserves the timestamp. Red
-INVALID BADGE, BADGE INACTIVE, NETWORK ERROR — RETRY or SCANNER NOT AUTHORIZED
-requires retry or supervisor attention. Never admit based on a blue camera-only
-detection. Do not treat a network timeout as success. An unauthorized or lost
-phone requires administrator revocation/reprovisioning. These instructions become
-operational only after the integration is implemented and staging-tested.
+The journal is an additional **staging-only tab**, not a proposed approved
+production schema change. No production column is added. Production integration
+will require an approved journal location and coordination with every legacy
+writer. ScriptLocks in separate projects do not coordinate. Never point this
+standalone staging adapter at the live sheet. Shared-project production locking,
+legacy routes and HR status races must be resolved in a separately approved
+production design. Atomic Sheets semantics still require real staging tests.
+
+Token lookup reads only the token column and matching attendee row; it preserves
+legacy trim/case normalization and rejects duplicate token rows. The retry journal
+currently reads its request-key column. This is O(n) and is not a capacity claim.
+No volatile cache is used for authorization, attendance or row identity.
+
+## Security findings and remaining review
+
+The manifest's anonymous access is necessary for a server-to-server Apps Script
+web app only when all write requests enforce application authorization. The new
+adapter verifies signatures and cannot expose arbitrary operations. Signing keys
+belong only in Worker secrets and staging Script Properties. No spreadsheet ID,
+backend key or Google credential is embedded in the frontend.
+
+The supplied legacy HR approval methods do not show an authorization check, and
+the default GET renders approval data. If the actual deployment has the manifest's
+anonymous access, this needs a separate owner security review before production
+acceptance. This is a source finding, not a verified claim about live exposure.
+No legacy auth was removed and no production fix was attempted.
+
+Provisioned browser credentials are exportable by phone holders and same-origin
+XSS. This version uses tab sessionStorage: refresh recovers a shift; closing the
+tab may require reprovisioning. Host staging on a dedicated origin with a Worker
+/api route. GitHub Pages projects sharing a hostname share browser storage and
+are not isolated security origins. Do not persist device credentials on a shared
+Pages origin. Keep strict CSP, no-referrer and no external scripts. The current
+CSP permits the same-origin /api calls; no no-cors workaround is used.
+
+Revocation rejects subsequent authorizations; it cannot cancel an already-signed
+request in flight. Signed envelopes expire after two minutes and replays are
+idempotent. Administrator bootstrap bearer is powerful: restrict admin routes at
+the edge, enforce IP/request limits, configure log redaction and budget controls.
+Expired durable records/journal need an event retention policy before sustained
+operation. Public deployment remains blocked on these controls and real runtime
+validation. No security or readiness claim is made for the live system.
+
+## Staging creation and deployment instructions
+
+There is no configured Google or Cloudflare identity in the execution environment.
+A Google Drive integration was found and offered for connection; it is not yet
+confirmed connected. Its eventual Apps Script creation/deployment capabilities
+must be checked rather than assumed. No Cloudflare plugin was found. More
+integrations may be available in the plugin directory.
+
+An authorized owner can use this sequence, or connect suitable tools so creation
+can be completed here. It never opens production:
+
+1. Create a **new standalone Apps Script project** in the staging account. Add only
+   backend/Attendance.gs, backend/Staging.gs and backend/appsscript.json. Do not
+   upload the sanitized legacy project, SETUP_V2 or approval/registration helpers.
+2. In Script Properties set SCANNER_ENVIRONMENT=staging and STAGING_SCRIPT_ID to
+   this new project's own ID. Run `createSyntheticStaging_` from the editor once.
+   It creates a brand-new spreadsheet and 50 synthetic attendee rows, including
+   one inactive record. It creates Attendees, Activity and ScannerRequests; it
+   does not clear any tab, attach a Form or install a trigger. A second run with
+   a configured staging target is refused. Record the returned new spreadsheet
+   ID. In the event of a seed failure, inspect only the newly created synthetic
+   workbook before retrying; partial creation may leave an orphan workbook.
+3. Confirm the stored STAGING_SPREADSHEET_ID and ALLOWED_STAGING_SPREADSHEET_IDS
+   contain only the fresh ID. Keep STAGING_WRITES_ENABLED=false. Generate a new
+   staging-only 32-byte random lowercase hex BRIDGE_SIGNING_KEY and a distinct
+   SCANNER_AUDIENCE identifier (16–100 URL-safe characters). Store them in Script
+   Properties. Never paste secrets into chat or commit populated local configs.
+4. Enable the advanced Sheets v4 service and its associated Google Cloud API.
+   The supplied manifest requests spreadsheet scope only. Deploy a NEW staging
+   web app as the staging owner with anonymous transport access, protected by the
+   HMAC application checks. Verify actual deployment settings/version in the UI.
+   Do not change or replace any existing deployment.
+5. In an approved Cloudflare staging account, configure the new isolated Durable
+   Object binding, exact dedicated SCANNER_ORIGIN, BADGE_BASE, STAGING_BACKEND_URL
+   and matching BACKEND_AUDIENCE. Store matching BRIDGE_SIGNING_KEY plus a new
+   random administrator bearer in Worker secrets. Keep STAGING_ATTENDANCE_ENABLED
+   false initially. Use the reviewed Wrangler template; workers.dev starts false.
+   Confirm current plan eligibility/cost before provisioning anything paid.
+6. Build `npm ci`, `npm run build:staging`. Serve dist-staging on the dedicated
+   staging origin, and route /api/* to bridge/worker.js. An approved custom domain
+   can route the same-origin API through Cloudflare while serving static assets;
+   alternatively use an isolated staging hosting origin for both. Configure
+   request/IP limits and admin access restrictions before exposing the route.
+7. Prove unauthorized calls, role mismatch, expired signatures and GET requests
+   cannot write. Confirm redirects and readable JSON against the staging app.
+   Provision a Gate and Meal device once via the authenticated /admin/provision
+   route; the code is entered on staging.html. Use no real QR tokens.
+8. Enable writes **only on staging**, using both STAGING_WRITES_ENABLED=true in
+   the new script and STAGING_ATTENDANCE_ENABLED=true in the new Worker. Test
+   synthetic token STAGE00000000001 through STAGE00000000049; token 50 is inactive.
+   Use a synthetic badge URL base for staging QR images; BADGE_BASE is an exact
+   server-supplied origin/path. Never open or navigate to the old badge URLs.
+9. Record deployment IDs, version hashes, phone results and test evidence. No
+   production activation follows from these steps or from PR merge.
+
+## Tests and capacity
+
+Local validation: 59 offline unit cases pass, plus the credential-pattern check.
+They cover Gate/Meal success and duplicates, invalid/inactive badges, QR shape,
+missing tokens, unauthorized/cross-role requests, signature tampering/expiry,
+concurrent mock submissions, lock contention, atomic-batch failure recovery,
+timeouts, idempotent retry, refresh recovery, continuous multiple attendees and
+staging isolation. The actual Apps Script adapter is evaluated in Node VM with
+Google services replaced by synthetic doubles; it cannot contact Google.
+
+Three new Chromium tests exercise the staging UI with a synthetic camera and
+mocked API; the five existing camera regression tests remain. CI runs lint,
+secret-pattern checks, unit tests, separate camera/staging builds and browser
+checks. CI status is reported in the PR; physical Safari/iPhone and Android tests
+and real Durable Object/Apps Script tests remain pending. Local dependencies are
+not installed, so build/lint/browser verification is delegated to the existing
+GitHub Actions runner. No test fixture contains a literal live spreadsheet ID.
+
+To load test real staging after deployment, fill a local copy of
+config/load-staging.example.json with the new staging ID, exact allowlists and
+explicit staging write enablement. Supply a staging-only device credential using
+the SCANNER_STAGING_DEVICE_CREDENTIAL environment variable. Run
+`node scripts/load-staging.js /path/to/load-staging.local.json` outside CI.
+Start at concurrency 1, then 2/4/8/16; each run is bounded to at most 6,000 calls
+and uses only the 49 active synthetic fixtures. Use multiple staging devices and
+both roles for the full race matrix. The runner does not reset timestamps or
+clear logs. Reconcile Attendees, Activity and ScannerRequests on staging only.
+
+Record p50/p95/p99 latency, throughput, lock contention, HTTP/API error rates,
+Apps Script execution/Sheets quotas, and row/audit invariants. Stop on pressure
+or errors. Duplicate-heavy tests are not a substitute for unique first-write
+capacity; expand synthetic fixtures in a new staging workbook for full event
+simulations. No measured cloud throughput or support for 6,000 attendees is
+claimed. Planning budget remains roughly US$5–15/month for modest Worker/Durable
+Object usage if a paid plan is needed; this is an unverified estimate, excluding
+Workspace/domain costs. Verify current pricing; no paid provisioning is approved.
+
+## Production readiness and rollback
+
+- [x] Source and sanitization notes inspected; owner header rows confirmed.
+- [x] Existing timestamp columns, normalization and Meal-before-Gate rules preserved.
+- [x] Authenticated staging adapter, client, provisioning and offline tests implemented.
+- [ ] Complete existing badge base including deployment ID and /exec received.
+- [ ] Actual legacy execution/access settings and exported/deployed version confirmed.
+- [ ] Isolated Google/Cloudflare resources created through authorized access.
+- [ ] Real staging tests, phone checks, edge controls and capacity evidence completed.
+- [ ] Legacy HR access review and shared-writer/production journal design approved.
+- [ ] Separate production deployment and attendance activation explicitly approved.
+
+Rollback of this staging implementation: set the staging script write flag false,
+set the Worker attendance flag false, revoke staging device sessions, and restore
+the previous reviewed frontend/backend versions or remove the staging route.
+Keep all recorded timestamps, Activity and journal rows for reconciliation. The
+camera-only Pages build is independently deployable. No production rollback is
+needed because no production resources have been touched. Never run setup/reset
+or delete attendance as a rollback mechanism.
+
+Volunteer operation on staging: administrator provisions the correct role once;
+volunteer starts the camera and checks the displayed server role. Scan a synthetic
+badge and wait for green ENTRY OK/MEAL OK or amber duplicate confirmation. Red
+NETWORK ERROR — RETRY means an uncertain outcome: keep the attendee present and
+retry before scanning another badge. The same request ID survives refresh. Red
+SCANNER NOT AUTHORIZED requires administrator help. Invalid/inactive badges are
+not admitted. Do not use blue camera-only detection as an attendance result.

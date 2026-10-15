@@ -1,8 +1,8 @@
-# Annual Day 2026 — continuous QR camera proof of concept
+# Annual Day 2026 — continuous QR scanner
 
 Sreedhareeyam Ayurveda Group · 21 October 2026 · anticipated 5,000–6,000 attendees.
 
-**Camera test only. Not an admission system.** No login, backend requests, attendee data, attendance writes, or production credentials are included. The blue detection panel confirms decoding only. Existing badges do not need changes for this test. Live production systems have not been accessed or changed.
+**The default Pages build remains a camera test.** Its blue detection panel confirms decoding only. A separate, unactivated staging attendance integration now includes device provisioning, a signed Apps Script adapter and synthetic tests. Read [the staging integration guide](docs/ATTENDANCE-INTEGRATION.md) for setup and remaining blockers. No production system has been accessed or changed; no cloud staging resources have been deployed.
 
 ## Run
 
@@ -39,3 +39,4 @@ PRs run lint, credential-pattern checks, unit tests, build and Chromium tests. T
 - Audio is opt-in, vibration is best effort. Camera and image recognition work locally after assets load; fresh offline loads are not supported. No service worker caches stale releases.
 
 See [architecture](docs/ARCHITECTURE.md), [security](docs/SECURITY.md), [capacity](docs/PERFORMANCE.md), and [checklist](docs/CHECKLIST.md). Backend implementation and login/attendance tests are intentionally gated on real-phone camera acceptance and source inspection.
+

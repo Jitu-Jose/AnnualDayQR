@@ -1,0 +1,12 @@
+{
+  "environment": "staging",
+  "spreadsheetId": "",
+  "allowedStagingSpreadsheetIds": [],
+  "attendanceWritesEnabled": false,
+  "scannerOrigin": "https://scanner-staging.example.invalid",
+  "allowedStagingOrigins": [],
+  "count": 50,
+  "concurrency": 2,
+  "intervalMs": 1000,
+  "fixtureCount": 49
+}

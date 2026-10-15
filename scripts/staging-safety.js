@@ -16,7 +16,7 @@ export function assertAllowedFingerprint(fingerprint, allowedFingerprints) {
 
 // Local preflight only. No Google API calls, credentials or writes.
 // Future staging runners must call this before constructing a network client.
-export function assertStagingTarget(config) {
+function assertStagingIdentity(config) {
   if (!config || config.environment !== 'staging') throw new Error('Staging environment required');
   const id = config.spreadsheetId;
   if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{20,100}$/.test(id)) {
@@ -29,8 +29,22 @@ export function assertStagingTarget(config) {
   }
   const fingerprint = (value) => createHash('sha256').update(value).digest('hex');
   assertAllowedFingerprint(fingerprint(id), config.allowedStagingSpreadsheetIds.map(fingerprint));
+  return id;
+}
+export function assertStagingTarget(config) {
+  const id = assertStagingIdentity(config);
   if (config.attendanceWritesEnabled !== false) {
     throw new Error('Preparation configuration must keep attendance writes disabled');
   }
   return Object.freeze({ environment: 'staging', spreadsheetId: id, attendanceWritesEnabled: false });
+}
+
+export function assertStagingLoadTarget(config) {
+  const id = assertStagingIdentity(config);
+  if (config.attendanceWritesEnabled !== true) throw new Error('Explicit staging write enablement required');
+  const origin = new URL(config.scannerOrigin);
+  if (origin.protocol !== 'https:' || origin.username || origin.password || origin.pathname !== '/' ||
+      origin.search || origin.hash || !Array.isArray(config.allowedStagingOrigins) ||
+      !config.allowedStagingOrigins.includes(origin.origin)) throw new Error('Staging origin not allowlisted');
+  return Object.freeze({ spreadsheetId:id,origin:origin.origin });
 }

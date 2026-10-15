@@ -18,7 +18,9 @@ export default {
     if (request.method !== 'POST') return new Response('Method not allowed', { status: 405, headers });
     try {
       const id = env.SCANNER_AUTHORITY.idFromName('annual-day-2026-staging');
-      const result = await env.SCANNER_AUTHORITY.get(id).fetch(request);
+      const url = new URL(request.url);
+      if (url.pathname.startsWith('/api/')) url.pathname = url.pathname.slice(4);
+      const result = await env.SCANNER_AUTHORITY.get(id).fetch(new Request(url,request));
       const combined = new Headers(result.headers);
       for (const [key, value] of Object.entries(headers)) combined.set(key, value);
       return new Response(result.body, { status: result.status, headers: combined });
