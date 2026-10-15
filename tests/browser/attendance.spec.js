@@ -24,6 +24,8 @@ async function api(page,{ role = 'GATE', failFirst = false } = {}) {
   return requests;
 }
 async function provision(page) {
+  page.on('pageerror',(error) => console.log('Staging page error:',error.message));
+  page.on('console',(message) => { if (message.type() === 'error') console.log('Staging console:',message.text()); });
   await page.goto('/staging.html');
   await expect(page.locator('#scanner-role')).toHaveText('SCANNER NOT AUTHORIZED');
   await page.locator('#provision-code').fill('synthetic-code');
