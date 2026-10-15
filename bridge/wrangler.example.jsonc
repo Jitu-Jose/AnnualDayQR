@@ -1,0 +1,14 @@
+{
+  "name": "annual-day-scanner-staging",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-15",
+  "workers_dev": false,
+  "vars": {
+    "ENVIRONMENT": "staging",
+    "SCANNER_ORIGIN": "https://scanner.example.invalid"
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "SCANNER_AUTHORITY", "class_name": "ScannerAuthority" }]
+  },
+  "migrations": [{ "tag": "staging-v1", "new_sqlite_classes": ["ScannerAuthority"] }]
+}
