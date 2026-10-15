@@ -1,0 +1,29 @@
+{
+  "name": "annual-day-2026-scanner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "lint": "eslint .",
+    "test": "node --test tests/*.test.js",
+    "test:browser": "playwright test",
+    "check:secrets": "node scripts/check-secrets.js"
+  },
+  "dependencies": {
+    "qr-scanner": "1.4.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.64.1",
+    "eslint": "10.12.0",
+    "globals": "17.13.0",
+    "qrcode": "1.5.4",
+    "vite": "8.3.4"
+  }
+}
