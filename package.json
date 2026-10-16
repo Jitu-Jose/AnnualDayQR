@@ -13,7 +13,9 @@
     "lint": "eslint .",
     "test": "node --test tests/*.test.js",
     "test:browser": "playwright test",
-    "check:secrets": "node scripts/check-secrets.js"
+    "check:secrets": "node scripts/check-secrets.js",
+    "build:staging": "vite build --config vite.staging.config.js",
+    "preview:staging": "vite preview --config vite.staging.config.js --host 0.0.0.0"
   },
   "dependencies": {
     "qr-scanner": "1.4.2"

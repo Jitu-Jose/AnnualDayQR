@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="referrer" content="no-referrer" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:; worker-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
+    <meta name="theme-color" content="#102d29" />
+    <title>Annual Day 2026 — Staging Scanner</title>
+  </head>
+  <body data-mode="staging">
+    <main>
+      <header><p class="eyebrow">Sreedhareeyam Ayurveda Group</p><h1>Annual Day 2026</h1><p>21 October · Isolated staging attendance</p></header>
+      <p class="notice"><strong>SYNTHETIC STAGING ONLY</strong><br>Use test badges only. Wait for confirmed green or amber results.</p>
+      <p id="scanner-role">SCANNER NOT AUTHORIZED</p>
+      <form id="provisioning"><label for="provision-code">Administrator provisioning code</label><input id="provision-code" type="password" autocomplete="off" required /><button type="submit">Provision this scanner</button></form>
+      <button id="retry" hidden>Retry unresolved scan</button>
+      <section class="camera" aria-label="QR camera">
+        <video id="camera" muted playsinline aria-label="Rear camera preview"></video>
+        <div class="guide" aria-hidden="true"></div>
+        <p id="camera-status" role="status">Tap Start camera, then allow camera access.</p>
+      </section>
+      <section id="result" class="result neutral" aria-live="polite" aria-atomic="true"><h2 id="result-title">Ready to test</h2><p id="result-detail">Hold one badge inside the frame.</p></section>
+      <p class="counter">QR detections this visit: <strong id="count">0</strong></p>
+      <div class="controls"><button id="start">Start camera</button><button id="stop" class="secondary" disabled>Stop camera</button></div>
+      <label class="sound"><input id="sound" type="checkbox" /> Sound feedback</label>
+      <p id="connection" role="status"></p>
+      <details><summary>Camera help</summary><p>Open this page directly in Safari on iPhone or Chrome on Android. Allow camera permission in browser settings. Close other camera apps, return here and tap Restart camera. Use HTTPS and avoid embedded browsers.</p></details>
+      <footer>Camera images stay on this device. The badge token is sent to the staging backend. This tab retains its device credential and any unresolved scan until confirmed.</footer>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
+

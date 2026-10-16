@@ -6,3 +6,11 @@ playwright-report/
 .env.*
 !.env.example
 *.log
+
+dist-staging/
+*.local.json
+wrangler.local.jsonc
+
+
+.clasp.json
+.clasprc.json

@@ -1,0 +1,28 @@
+<!doctype html>
+<html><head><base target="_top"><style>
+body{font:20px system-ui;margin:48px auto;max-width:480px;padding:20px;text-align:center}h1{font-size:32px}.ok{color:#126235}.bad{color:#9f2222}.duplicate{color:#875500}
+</style></head><body>
+<h1 id="result" role="status" aria-live="polite">Checking authorization…</h1>
+<p id="note">Annual Day 2026 · STAGING</p>
+<script>
+const badgeToken = <?!= tokenJson ?>;
+const storageKey = 'annualday-native-staging-session-v1';
+const output = document.getElementById('result');
+let session = '';
+try { session=localStorage.getItem(storageKey) || ''; } catch (_) { /* Fail closed. */ }
+if (!session) { output.textContent='Not Approved';output.className='bad'; }
+else {
+  let finished=false;
+  const timer=setTimeout(function() {
+    if (!finished) { output.textContent='Technical error. Attendance is not confirmed.';output.className='bad'; }
+  },20000);
+  google.script.run.withSuccessHandler(function(result) {
+    finished=true;clearTimeout(timer);
+    const messages={ENTRY_RECORDED:'Entry Recorded',MEAL_RECORDED:'Meal Recorded',ALREADY_RECORDED:'Already Recorded',NOT_APPROVED:'Not Approved',WRITES_DISABLED:'Staging attendance writes are disabled.'};
+    output.textContent=result && messages[result.code] || 'Technical error. Attendance is not confirmed. Scan again after checking the connection.';
+    output.className=result && (result.code==='ENTRY_RECORDED' || result.code==='MEAL_RECORDED') ? 'ok' : result && result.code==='ALREADY_RECORDED' ? 'duplicate' : 'bad';
+  }).withFailureHandler(function() {
+    finished=true;clearTimeout(timer);output.textContent='Technical error. Attendance is not confirmed. Scan again after checking the connection.';output.className='bad';
+  }).nativeRecord(badgeToken,session);
+}
+</script></body></html>

@@ -1,0 +1,34 @@
+<!doctype html>
+<html><head><base target="_top"><style>
+body{font:18px system-ui;margin:24px auto;max-width:420px;padding:16px;color:#173b2b}input,button{box-sizing:border-box;font:inherit;width:100%;padding:14px;margin:10px 0}#message{white-space:pre-wrap}
+</style></head><body>
+<h1><?= role === 'GATE' ? 'Gate Entry' : 'Meal Entry' ?></h1>
+<p>Annual Day 2026 · STAGING</p>
+<form id="login"><label for="pin">Six-digit PIN</label><input id="pin" type="password" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="off" required><button id="submit">Log in</button></form>
+<p id="message" role="status" aria-live="polite"></p>
+<script>
+const role = '<?= role ?>';
+const storageKey = 'annualday-native-staging-session-v1';
+const output = document.getElementById('message');
+document.getElementById('login').addEventListener('submit',function(event) {
+  event.preventDefault();
+  let previous;
+  try {
+    previous = localStorage.getItem(storageKey) || '';
+    // Check storage access before creating a server session. Never store the PIN.
+    if (previous) localStorage.setItem(storageKey,previous);
+  } catch (_) { output.textContent='Browser storage is unavailable. Use the same normal browser for login and Camera links.';return; }
+  const button = document.getElementById('submit');button.disabled=true;
+  const pin = document.getElementById('pin').value;document.getElementById('pin').value='';
+  output.textContent='Checking…';
+  google.script.run.withSuccessHandler(function(result) {
+    button.disabled=false;
+    if (!result || result.code!=='AUTHORIZED') { output.textContent=result && result.message || 'Technical error. Please try again.';return; }
+    try { localStorage.setItem(storageKey,result.token); }
+    catch (_) { output.textContent='Login could not be saved. Use a browser that permits storage.';return; }
+    output.textContent='Authorized for '+(result.role==='GATE' ? 'Gate Entry' : 'Meal Entry')+'. Use the native Camera. Valid for eight hours from login. Camera links must open in this same browser context.';
+  }).withFailureHandler(function() {
+    button.disabled=false;output.textContent='Technical error. Login is not confirmed.';
+  }).nativeLogin(role,pin,previous);
+});
+</script></body></html>

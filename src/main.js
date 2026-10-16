@@ -1,6 +1,7 @@
 import QrScanner from 'qr-scanner';
 import { parseBadgeQr, ScanGate } from './qr.js';
 import './style.css';
+import { stagingAttendance } from './staging-ui.js';
 
 const el = (id) => document.getElementById(id);
 const video = el('camera');
@@ -14,6 +15,7 @@ let audio;
 let resetFeedback;
 let startedAt;
 let firstDetection = false;
+const attendance = document.body.dataset.mode === 'staging' ? stagingAttendance({ result, feedback }) : null;
 
 function result(title, detail, state = 'neutral') {
   el('result-title').textContent = title;
@@ -38,6 +40,7 @@ function onDecode({ data }) {
   if (!running || document.hidden || !gate.accept(data)) return;
   count++;
   el('count').textContent = String(count);
+  if (attendance) { attendance.scan(data); return; }
   const badge = parseBadgeQr(data);
   result(badge ? 'QR DETECTED' : 'UNRECOGNIZED QR', badge
     ? 'Badge URL shape recognized. Deployment unverified. No attendance recorded.'
@@ -103,12 +106,12 @@ async function startCamera() {
     performance.mark('camera-ready');
     performance.measure('camera-initialization', 'camera-start-request', 'camera-ready');
     el('camera-status').textContent = `Camera active · started in ${Math.round(performance.now() - startedAt)} ms`;
-    result('Ready for next QR', 'Hold one badge steady inside the frame.');
+    if (!attendance) result('Ready for next QR', 'Hold one badge steady inside the frame.');
     const track = video.srcObject?.getVideoTracks()[0];
     track?.addEventListener('ended', () => {
       if (attempt === generation) {
         stopCamera('Camera interrupted. Tap Restart camera.');
-        result('Camera interrupted', 'No attendance was recorded.', 'error');
+        result('Camera interrupted', attendance ? 'Check any pending scan before restarting.' : 'No attendance was recorded.', 'error');
       }
     }, { once: true });
   } catch (error) {
@@ -128,9 +131,10 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('pagehide', () => stopCamera());
 function updateConnection() {
   el('connection').textContent = navigator.onLine
-    ? 'Camera-only test · no attendance connection'
+    ? attendance ? 'Staging connection · server confirmation required' : 'Camera-only test · no attendance connection'
     : 'Offline · camera test can continue if loaded. Attendance is unavailable.';
 }
 window.addEventListener('online', updateConnection);
 window.addEventListener('offline', updateConnection);
 updateConnection();
+
