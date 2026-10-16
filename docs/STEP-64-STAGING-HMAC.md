@@ -1,3 +1,5 @@
+> SUPERSEDED: the owner selected the Apps Script-only native Camera package in native-staging/README.md. This historical bridge plan is not selected and must not be combined with it.
+
 # Step 64 — HMAC adapter for the existing staging workbook
 
 Preparation only. No Apps Script upload, remote sheet modification, deployment,

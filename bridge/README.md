@@ -1,3 +1,5 @@
+> SUPERSEDED: the owner selected the Apps Script-only native Camera package in native-staging/README.md. This historical bridge plan is not selected and must not be combined with it.
+
 Follow [Step 64](../docs/STEP-64-STAGING-HMAC.md) for the selected HMAC adapter and existing staging workbook. No workbook creation or seeding is permitted.
 
 # Staging scanner bridge

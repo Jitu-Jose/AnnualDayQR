@@ -1,3 +1,5 @@
+> SUPERSEDED: the owner selected the Apps Script-only native Camera package in native-staging/README.md. This historical bridge plan is not selected and must not be combined with it.
+
 # Staging attendance integration — 15 October 2026
 
 Implementation is in draft PR #2. Production access, modification, testing and
