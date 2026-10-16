@@ -10,3 +10,7 @@ playwright-report/
 dist-staging/
 *.local.json
 wrangler.local.jsonc
+
+
+.clasp.json
+.clasprc.json

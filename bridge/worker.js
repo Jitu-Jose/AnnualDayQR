@@ -3,6 +3,11 @@ export { ScannerAuthority } from './authority.js';
 export default {
   async fetch(request, env) {
     if (env.ENVIRONMENT !== 'staging') return new Response('Staging only', { status: 503 });
+    let allowed;
+    try { allowed = new URL(env.SCANNER_ORIGIN); } catch { return new Response('Origin not configured', { status: 503 }); }
+    if (allowed.protocol !== 'https:' || allowed.origin !== env.SCANNER_ORIGIN || allowed.username || allowed.password) {
+      return new Response('Origin not configured', { status: 503 });
+    }
     const origin = request.headers.get('Origin');
     if (origin && origin !== env.SCANNER_ORIGIN) return new Response('Forbidden', { status: 403 });
     const headers = {
@@ -31,3 +36,4 @@ export default {
     }
   },
 };
+

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { createHash, createHmac } from 'node:crypto';
 
 export const signingKey = 'b'.repeat(64);
-export const stagingId = 'SYNTHETIC_STAGING_ONLY_0001';
+export const stagingId = '1rd-tQCnK5fm_rRzTwipU2gxMg9UP_BpjleIfhLOuqxQ';
 export const scriptId = 'SYNTHETIC_STAGING_SCRIPT';
 export const audience = 'synthetic-staging-audience';
 export const deviceId = 'c'.repeat(64);
@@ -20,6 +20,8 @@ class Sheet {
   }
 }
 export function backendFixture() {
+  const workbook = { id: stagingId, title: 'Annual Day 2026 - STAGING TEST ONLY', timeZone: 'Asia/Kolkata' };
+  const submitted = [];
   let opened = 0;
   let batches = 0;
   let locked = false;
@@ -41,10 +43,12 @@ export function backendFixture() {
     SpreadsheetApp:{ openById:(id) => {
       if (id !== stagingId) throw new Error('Unexpected target');
       opened++;
-      return { getSpreadsheetTimeZone:() => 'Asia/Kolkata',getSheetByName:(name) => sheets[name] };
+      return { getId:() => workbook.id, getName:() => workbook.title,
+        getSpreadsheetTimeZone:() => workbook.timeZone,getSheetByName:(name) => sheets[name] };
     } },
     Sheets:{ Spreadsheets:{ batchUpdate:(body,id) => {
       if (id !== stagingId) throw new Error('Unexpected target');
+      submitted.push(structuredClone(body.requests));
       if (fail === 'before') { fail = ''; throw new Error('Injected API failure'); }
       // Apply the batch to a clone so all effects commit together in this double.
       const next = Object.fromEntries(Object.entries(sheets).map(([k,v]) => [k,structuredClone(v.rows)]));
@@ -85,7 +89,8 @@ export function backendFixture() {
     return { payload:text,signature:createHmac('sha256',signingKey).update(text).digest('hex') };
   };
   const postEnvelope = (value) => JSON.parse(context.doPost({ postData:{ contents:JSON.stringify(value) } }).text);
-  return { props,sheets,context,payload,envelope,postEnvelope,
+  return { props,sheets,context,payload,envelope,postEnvelope,workbook,submitted,
     post:(overrides) => postEnvelope(envelope(payload(overrides))),
     stats:() => ({ opened,batches,locked }),lock:() => { locked = true; },injectFailure:(mode) => { fail = mode; } };
 }
+

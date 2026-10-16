@@ -1,3 +1,5 @@
+> SUPERSEDED for scanner integration: Step 64 selects the HMAC adapter in the parent backend directory. Do not upload or combine this archived package. Follow docs/STEP-64-STAGING-HMAC.md.
+
 # Prepared staging backend — local package published 16 October 2026
 
 This is the minimal package prepared during spreadsheet initialization in the Drive chat. It is separate from the PR's existing HMAC bridge adapter in backend/Attendance.gs and backend/Staging.gs. Do not combine the two packages: they have different authentication, properties and entry points. This package has no doGet/doPost and cannot yet serve the QR scanner. Upload is source transfer only, not deployment or readiness.
@@ -51,3 +53,4 @@ clasp push
 Push uploads source; it does not create a deployment. Do not run clasp deploy, clasp run, SETUP_V2 or any attendance helper. No upload was performed in this task.
 
 After upload, set the three properties from script-properties.nonsecret.json manually in the staging project's Script Properties. Keep STAGING_ATTENDANCE_WRITES_ENABLED=false. A separate staging-only VOLUNTEER_PIN_PEPPER and synthetic volunteers will need secure provisioning later; no credentials are included. Do not put credentials in the spreadsheet or GitHub. Do not enable writes or deploy until separately approved and the package/adapter choice and runtime blockers are resolved.
+

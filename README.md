@@ -1,3 +1,5 @@
+> Staging attendance integration uses the HMAC adapter. Follow [Step 64](docs/STEP-64-STAGING-HMAC.md) for the existing workbook and approval boundaries. Do not upload the archived prepared-staging package or create another workbook.
+
 # Annual Day 2026 — continuous QR scanner
 
 Sreedhareeyam Ayurveda Group · 21 October 2026 · anticipated 5,000–6,000 attendees.
@@ -39,4 +41,5 @@ PRs run lint, credential-pattern checks, unit tests, build and Chromium tests. T
 - Audio is opt-in, vibration is best effort. Camera and image recognition work locally after assets load; fresh offline loads are not supported. No service worker caches stale releases.
 
 See [architecture](docs/ARCHITECTURE.md), [security](docs/SECURITY.md), [capacity](docs/PERFORMANCE.md), and [checklist](docs/CHECKLIST.md). Backend implementation and login/attendance tests are intentionally gated on real-phone camera acceptance and source inspection.
+
 

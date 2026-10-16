@@ -125,65 +125,25 @@ Expired durable records/journal need an event retention policy before sustained
 operation. Public deployment remains blocked on these controls and real runtime
 validation. No security or readiness claim is made for the live system.
 
-## Staging creation and deployment instructions
+## Existing staging workbook and selected adapter — Step 64
 
-There is no configured Google or Cloudflare identity in the execution environment.
-A Google Drive integration was found and offered for connection; it is not yet
-confirmed connected. Its eventual Apps Script creation/deployment capabilities
-must be checked rather than assumed. No Cloudflare plugin was found. More
-integrations may be available in the plugin directory.
+The owner selected the HMAC bridge architecture and already has a staging workbook
+with 20 synthetic attendees. The prepared baseline in backend/prepared-staging is
+archived and MUST NOT be uploaded alongside this adapter. The old workbook creation
+helper has been removed. Never create or seed another workbook for this task.
 
-An authorized owner can use this sequence, or connect suitable tools so creation
-can be completed here. It never opens production:
-
-1. Create a **new standalone Apps Script project** in the staging account. Add only
-   backend/Attendance.gs, backend/Staging.gs and backend/appsscript.json. Do not
-   upload the sanitized legacy project, SETUP_V2 or approval/registration helpers.
-2. In Script Properties set SCANNER_ENVIRONMENT=staging and STAGING_SCRIPT_ID to
-   this new project's own ID. Run `createSyntheticStaging_` from the editor once.
-   It creates a brand-new spreadsheet and 50 synthetic attendee rows, including
-   one inactive record. It creates Attendees, Activity and ScannerRequests; it
-   does not clear any tab, attach a Form or install a trigger. A second run with
-   a configured staging target is refused. Record the returned new spreadsheet
-   ID. In the event of a seed failure, inspect only the newly created synthetic
-   workbook before retrying; partial creation may leave an orphan workbook.
-3. Confirm the stored STAGING_SPREADSHEET_ID and ALLOWED_STAGING_SPREADSHEET_IDS
-   contain only the fresh ID. Keep STAGING_WRITES_ENABLED=false. Generate a new
-   staging-only 32-byte random lowercase hex BRIDGE_SIGNING_KEY and a distinct
-   SCANNER_AUDIENCE identifier (16–100 URL-safe characters). Store them in Script
-   Properties. Never paste secrets into chat or commit populated local configs.
-4. Enable the advanced Sheets v4 service and its associated Google Cloud API.
-   The supplied manifest requests spreadsheet scope only. Deploy a NEW staging
-   web app as the staging owner with anonymous transport access, protected by the
-   HMAC application checks. Verify actual deployment settings/version in the UI.
-   Do not change or replace any existing deployment.
-5. In an approved Cloudflare staging account, configure the new isolated Durable
-   Object binding, exact dedicated SCANNER_ORIGIN, BADGE_BASE, STAGING_BACKEND_URL
-   and matching BACKEND_AUDIENCE. Store matching BRIDGE_SIGNING_KEY plus a new
-   random administrator bearer in Worker secrets. Keep STAGING_ATTENDANCE_ENABLED
-   false initially. Use the reviewed Wrangler template; workers.dev starts false.
-   Confirm current plan eligibility/cost before provisioning anything paid.
-6. Build `npm ci`, `npm run build:staging`. Serve dist-staging on the dedicated
-   staging origin, and route /api/* to bridge/worker.js. An approved custom domain
-   can route the same-origin API through Cloudflare while serving static assets;
-   alternatively use an isolated staging hosting origin for both. Configure
-   request/IP limits and admin access restrictions before exposing the route.
-7. Prove unauthorized calls, role mismatch, expired signatures and GET requests
-   cannot write. Confirm redirects and readable JSON against the staging app.
-   Provision a Gate and Meal device once via the authenticated /admin/provision
-   route; the code is entered on staging.html. Use no real QR tokens.
-8. Enable writes **only on staging**, using both STAGING_WRITES_ENABLED=true in
-   the new script and STAGING_ATTENDANCE_ENABLED=true in the new Worker. Test
-   synthetic token STAGE00000000001 through STAGE00000000049; token 50 is inactive.
-   Use a synthetic badge URL base for staging QR images; BADGE_BASE is an exact
-   server-supplied origin/path. Never open or navigate to the old badge URLs.
-9. Record deployment IDs, version hashes, phone results and test evidence. No
-   production activation follows from these steps or from PR merge.
+[Step 64 handoff](STEP-64-STAGING-HMAC.md) is authoritative for existing-workbook
+configuration, the journal-only preparation, safe replacement upload, hosting,
+secrets, rate limits, approval boundaries and current validation. It replaces all
+prior new-workbook/50-record instructions. The load runner's old 49-token assumptions
+must not be used against the current 20 synthetic records; no remote load run is
+approved. Google Drive access and the owner's source upload are established in the
+conversation, but runtime source, properties, triggers and deployment are not
+independently verified by this repository.
 
 ## Tests and capacity
 
-Local validation: 60 offline unit cases pass, plus the credential-pattern check.
-They cover Gate/Meal success and duplicates, invalid/inactive badges, QR shape,
+Historical pre-Step-64 validation: 60 offline unit cases passed. Current Step 64 has 77 passing offline cases, lint, credential checks and both builds; browser startup is blocked locally by sandbox loopback permissions. See the Step 64 handoff for current evidence. The historical cases cover Gate/Meal success and duplicates, invalid/inactive badges, QR shape,
 missing tokens, unauthorized/cross-role requests, signature tampering/expiry,
 concurrent mock submissions, lock contention, atomic-batch failure recovery,
 timeouts, idempotent retry, refresh recovery, continuous multiple attendees and
@@ -196,17 +156,13 @@ secret-pattern checks, unit tests, separate camera/staging builds and browser
 checks. CI status is reported in the PR; physical Safari/iPhone and Android tests
 and real Durable Object/Apps Script tests remain pending. Local dependencies are
 not installed, so build/lint/browser verification is delegated to the existing
-GitHub Actions runner. No test fixture contains a literal live spreadsheet ID.
+GitHub Actions runner. Offline fixtures use only the approved staging ID and synthetic records; no production ID is configured or contacted.
 
-To load test real staging after deployment, fill a local copy of
-config/load-staging.example.json with the new staging ID, exact allowlists and
-explicit staging write enablement. Supply a staging-only device credential using
-the SCANNER_STAGING_DEVICE_CREDENTIAL environment variable. Run
-`node scripts/load-staging.js /path/to/load-staging.local.json` outside CI.
-Start at concurrency 1, then 2/4/8/16; each run is bounded to at most 6,000 calls
-and uses only the 49 active synthetic fixtures. Use multiple staging devices and
-both roles for the full race matrix. The runner does not reset timestamps or
-clear logs. Reconcile Attendees, Activity and ScannerRequests on staging only.
+The existing load runner was designed around an earlier 50-record fixture and must
+not be run against this 20-record workbook. A separately approved load plan must
+use the actual staging-only tokens, exact staging ID and origin allowlists, bounded
+requests and explicit enablement of both write gates. This step adds no load test
+execution or capacity evidence. Never clear timestamps or logs to repeat a test.
 
 Record p50/p95/p99 latency, throughput, lock contention, HTTP/API error rates,
 Apps Script execution/Sheets quotas, and row/audit invariants. Stop on pressure
@@ -244,3 +200,4 @@ NETWORK ERROR — RETRY means an uncertain outcome: keep the attendee present an
 retry before scanning another badge. The same request ID survives refresh. Red
 SCANNER NOT AUTHORIZED requires administrator help. Invalid/inactive badges are
 not admitted. Do not use blue camera-only detection as an attendance result.
+

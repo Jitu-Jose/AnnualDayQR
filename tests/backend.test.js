@@ -112,27 +112,14 @@ test('protected spreadsheet fingerprint is independently denied by deployed guar
   f.context.Utilities.computeDigest = () => [...protectedBytes];
   f.post(); assert.equal(f.stats().opened,0);
 });
-test('staging initializer creates a new synthetic workbook once and leaves writes disabled', () => {
+test('journal plan is read-only and never creates or seeds a workbook', () => {
   const f = backendFixture();
-  delete f.props.STAGING_SPREADSHEET_ID;
-  f.context.PropertiesService.getScriptProperties = () => ({ getProperty:(key) => f.props[key],
-    setProperties:(values) => Object.assign(f.props,values) });
-  const created = {};
-  let creates = 0;
-  f.context.SpreadsheetApp.create = () => {
-    creates++;
-    return { setSpreadsheetTimeZone:() => {},getId:() => 'NEW_SYNTHETIC_STAGING_0001',insertSheet:(name) => {
-      created[name] = [];
-      return { getMaxRows:() => 1000,getRange:(row) => ({
-        setValues:(values) => { created[name].push({ row,values }); },setNumberFormat:() => {},
-      }) };
-    } };
-  };
   vm.runInContext(readFileSync(new URL('../backend/Staging.gs',import.meta.url),'utf8'),f.context);
-  f.context.createSyntheticStaging_();
-  assert.equal(creates,1); assert.equal(f.props.STAGING_WRITES_ENABLED,'false');
-  assert.equal(created.Attendees[1].values.length,50);
-  assert.equal(created.Attendees[1].values[49][13],'Inactive');
-  assert.throws(() => f.context.createSyntheticStaging_(),/NEW_STAGING_PROJECT_REQUIRED/);
-  assert.equal(creates,1); assert.equal(f.stats().opened,0);
+  const before = structuredClone(f.sheets.Attendees.rows);
+  const plan = f.context.scannerJournalPlan_();
+  assert.equal(plan.exists,true);
+  assert.deepEqual(Array.from(plan.headers),['Request Key','Payload Digest','Response JSON']);
+  assert.equal(f.stats().batches,0);
+  assert.deepEqual(f.sheets.Attendees.rows,before);
+  assert.equal(typeof f.context.createSyntheticStaging_,'undefined');
 });

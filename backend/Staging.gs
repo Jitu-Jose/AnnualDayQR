@@ -1,29 +1,39 @@
-// Run ONLY in a newly created standalone STAGING Apps Script project.
-// Always creates a new spreadsheet; cannot clear or seed an existing target.
-function createSyntheticStaging_() {
-  var props = PropertiesService.getScriptProperties();
-  if (props.getProperty('SCANNER_ENVIRONMENT') !== 'staging' ||
-      props.getProperty('STAGING_SCRIPT_ID') !== ScriptApp.getScriptId() ||
-      props.getProperty('STAGING_SPREADSHEET_ID')) throw new Error('NEW_STAGING_PROJECT_REQUIRED');
-  var ss = SpreadsheetApp.create('Annual Day 2026 - ISOLATED SYNTHETIC STAGING');
-  ss.setSpreadsheetTimeZone('Asia/Kolkata');
-  var attendees = ss.insertSheet('Attendees');
-  attendees.getRange(1,1,1,SCANNER_ATTENDEE_HEADERS_.length).setValues([SCANNER_ATTENDEE_HEADERS_]);
-  var rows = [];
-  for (var i=1; i<=50; i++) rows.push(['STAGE-BADGE-'+i,'STAGE-REG-'+i,
-    'Synthetic Staff '+i,'STAGE-EMP-'+i,'Synthetic Department','','Synthetic Attendee '+i,
-    'Staff','','STAGE'+String(i).padStart(11,'0'),'','','',i===50?'Inactive':'Active']);
-  attendees.getRange(2,1,rows.length,SCANNER_ATTENDEE_HEADERS_.length).setValues(rows);
-  ['Entry Time','Meal Time'].forEach(function(name) {
-    attendees.getRange(2,SCANNER_ATTENDEE_HEADERS_.indexOf(name)+1,rows.length,1).setNumberFormat('dd-mmm-yyyy h:mm:ss');
-  });
-  var activity = ss.insertSheet('Activity');
-  activity.getRange(1,1,1,SCANNER_ACTIVITY_HEADERS_.length).setValues([SCANNER_ACTIVITY_HEADERS_]);
-  activity.getRange(2,1,activity.getMaxRows()-1,1).setNumberFormat('dd-mmm-yyyy h:mm:ss');
-  var journal = ss.insertSheet('ScannerRequests');
-  journal.getRange(1,1,1,3).setValues([SCANNER_REQUEST_HEADERS_]);
-  // Store the freshly-created ID only after seeding; no fallback to a bound sheet.
-  props.setProperties({ STAGING_SPREADSHEET_ID: ss.getId(),
-    ALLOWED_STAGING_SPREADSHEET_IDS: JSON.stringify([ss.getId()]), STAGING_WRITES_ENABLED: 'false' });
-  return ss.getId();
+// EXISTING staging workbook only. No creation/seeding/reset functions.
+// Read-only preview; callable from the editor, never from the public web endpoint.
+function scannerJournalPlan_() {
+  var target = scannerTarget_();
+  var ss = scannerWorkbook_(target.id);
+  scannerHeaders_(ss.getSheetByName('Attendees'), SCANNER_ATTENDEE_HEADERS_);
+  scannerHeaders_(ss.getSheetByName('Activity'), SCANNER_ACTIVITY_HEADERS_);
+  var journal = ss.getSheetByName('ScannerRequests');
+  if (journal) scannerHeaders_(journal, SCANNER_REQUEST_HEADERS_);
+  return { spreadsheetId: target.id, tab: 'ScannerRequests',
+    headers: SCANNER_REQUEST_HEADERS_.slice(), exists: !!journal,
+    attendanceWritesEnabled: target.properties.STAGING_WRITES_ENABLED === 'true' };
+}
+// Prepared for a separately approved owner run. Does NOT run during clasp push.
+// This creates only the missing journal tab, atomically with its three headers.
+function prepareScannerRequests_(confirmation) {
+  var target = scannerTarget_();
+  if (confirmation !== SCANNER_STAGING_ID_ ||
+      target.properties.STAGING_WRITES_ENABLED !== 'false' ||
+      target.properties.STAGING_JOURNAL_PREPARATION_ENABLED !== 'true') {
+    throw new Error('JOURNAL_PREPARATION_NOT_AUTHORIZED');
+  }
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) throw new Error('BUSY_RETRY');
+  try {
+    var plan = scannerJournalPlan_();
+    if (plan.exists) return plan; // Never clear, reseed or overwrite an existing tab.
+    var journalId = 640064;
+    Sheets.Spreadsheets.batchUpdate({ requests: [
+      { addSheet: { properties: { sheetId: journalId, title: 'ScannerRequests',
+        gridProperties: { rowCount: 1000, columnCount: 3, frozenRowCount: 1 } } } },
+      { updateCells: { range: { sheetId: journalId, startRowIndex: 0, endRowIndex: 1,
+        startColumnIndex: 0, endColumnIndex: 3 },
+        rows: [{ values: SCANNER_REQUEST_HEADERS_.map(scannerCell_) }], fields: 'userEnteredValue' } }
+    ] }, target.id);
+    return { spreadsheetId: target.id, tab: 'ScannerRequests', created: true,
+      headers: SCANNER_REQUEST_HEADERS_.slice() };
+  } finally { lock.releaseLock(); }
 }

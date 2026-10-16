@@ -1,3 +1,5 @@
+Follow [Step 64](../docs/STEP-64-STAGING-HMAC.md) for the selected HMAC adapter and existing staging workbook. No workbook creation or seeding is permitted.
+
 # Staging scanner bridge
 
 Read [the integration guide](../docs/ATTENDANCE-INTEGRATION.md) for the current
@@ -32,3 +34,6 @@ account credentials, deployment IDs and secret values must never be committed.
 Local tests: `node --test --test-isolation=none --test-reporter=spec tests/*.test.js`.
 Cloudflare storage and Google services are mocked. Actual runtime validation and
 physical phone testing remain outstanding.
+
+
+Attendance has an additional durable per-device limit of 120 requests per minute, including retries. Provisioning/admin retain their coarse 60/minute route-class limits. These are operational defaults, not measured event capacity; edge/IP and restricted admin access are deployment blockers.

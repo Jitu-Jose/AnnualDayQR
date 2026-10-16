@@ -126,6 +126,16 @@ export class ScannerAuthority {
       badgeBase: this.env.BADGE_BASE || '',
     });
     if (body.action !== device.role) return response(403, { code: 'ROLE_FORBIDDEN' });
+    // Per-device durable limit includes retries. It is not an edge/IP abuse limit.
+    const admitted = await this.storage.transaction(async (tx) => {
+      const key = 'limit:attendance:' + device.deviceId;
+      const prior = await tx.get(key);
+      const window = prior && prior.until > now ? prior : { count: 0, until: now + 60_000 };
+      if (window.count >= 120) return false;
+      await tx.put(key, { ...window, count: window.count + 1 });
+      return true;
+    });
+    if (!admitted) return response(429, { code: 'RATE_LIMITED' });
     if (this.env.STAGING_ATTENDANCE_ENABLED !== 'true') return response(503, { code: 'BACKEND_NOT_CONFIGURED' });
     if (Object.keys(body).sort().join(',') !== 'action,requestId,token' ||
         !/^[a-f0-9-]{36}$/.test(body.requestId || '') || typeof body.token !== 'string' ||
@@ -140,4 +150,5 @@ export class ScannerAuthority {
   }
 }
 import { submitStagingAttendance } from './backend.js';
+
 

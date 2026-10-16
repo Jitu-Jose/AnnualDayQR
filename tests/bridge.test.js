@@ -150,3 +150,44 @@ test('worker rejects wrong origins and gives exact readable preflight headers', 
   assert.equal(preflight.headers.get('Access-Control-Allow-Origin'), env.SCANNER_ORIGIN);
   assert.equal(preflight.headers.get('Access-Control-Allow-Methods'), 'POST');
 });
+
+
+test('attendance is durably limited per device even while the backend is disabled', async () => {
+  const { authority, storage } = fixture();
+  const device = await enroll(authority,'GATE');
+  const path = 'limit:attendance:' + device.deviceId;
+  await storage.put(path,{ count:119,until:Date.now()+60_000 });
+  assert.equal((await call(authority,'/attendance',{ action:'GATE' },device.credential)).status,503);
+  assert.equal((await call(authority,'/attendance',{ action:'GATE' },device.credential)).status,429);
+  await storage.put(path,{ count:120,until:0 });
+  assert.equal((await call(authority,'/attendance',{ action:'GATE' },device.credential)).status,503);
+  assert.equal((await storage.get(path)).count,1);
+});
+test('one device hitting its limit does not throttle another authorized device', async () => {
+  const { authority,storage } = fixture();
+  const a = await enroll(authority,'GATE'); const b = await enroll(authority,'MEAL');
+  await storage.put('limit:attendance:'+a.deviceId,{ count:120,until:Date.now()+60_000 });
+  assert.equal((await call(authority,'/attendance',{ action:'GATE' },a.credential)).status,429);
+  assert.equal((await call(authority,'/attendance',{ action:'MEAL' },b.credential)).status,503);
+});
+test('worker fails closed on absent or nonexact HTTPS origin configuration', async () => {
+  for (const SCANNER_ORIGIN of [undefined,'*','http://scanner.example.invalid','https://scanner.example.invalid/path']) {
+    const result = await worker.fetch(new Request('https://bridge.example.invalid/api/session'),
+      { ENVIRONMENT:'staging',SCANNER_ORIGIN });
+    assert.equal(result.status,503);
+  }
+});
+test('worker forwards same-origin API route without treating CORS as authentication', async () => {
+  let path;
+  const env = { ENVIRONMENT:'staging',SCANNER_ORIGIN:'https://scanner.example.invalid',SCANNER_AUTHORITY:{
+    idFromName:() => 'synthetic', get:() => ({ fetch:async (request) => {
+      path = new URL(request.url).pathname;
+      return new Response('{"code":"SCANNER_NOT_AUTHORIZED"}',{ status:401 });
+    } }),
+  } };
+  const response = await worker.fetch(new Request(env.SCANNER_ORIGIN+'/api/session',{
+    method:'POST',headers:{ Origin:env.SCANNER_ORIGIN,'Content-Type':'application/json' },body:'{}',
+  }),env);
+  assert.equal(path,'/session'); assert.equal(response.status,401);
+  assert.equal(response.headers.get('Access-Control-Allow-Origin'),env.SCANNER_ORIGIN);
+});

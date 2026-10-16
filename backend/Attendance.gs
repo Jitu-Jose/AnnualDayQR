@@ -1,5 +1,7 @@
-// STAGING ONLY. Deploy in a NEW standalone project, without legacy source.
+// STAGING ONLY. Use the separate owner-created staging project, without legacy source.
 // Every helper is private to google.script.run (trailing underscore).
+var SCANNER_STAGING_ID_ = '1rd-tQCnK5fm_rRzTwipU2gxMg9UP_BpjleIfhLOuqxQ';
+var SCANNER_STAGING_TITLE_ = 'Annual Day 2026 - STAGING TEST ONLY';
 var SCANNER_PROTECTED_SHA256_ = '0a6acf713a7dd956f80ea557fa6076e066d3708dc8efdb439adb32cfdb4ce05d';
 var SCANNER_ATTENDEE_HEADERS_ = ['Badge ID','Registration ID','Staff Name','Employee ID','Department','Mobile Number','Attendee Name','Relationship','Age','QR Token','Printed At','Entry Time','Meal Time','Status'];
 var SCANNER_ACTIVITY_HEADERS_ = ['Timestamp','Badge ID','Registration ID','Attendee Name','Department','Action','Result','Volunteer ID','Volunteer Role','Scan Source'];
@@ -17,19 +19,25 @@ function scannerSame_(a, b) {
   for (var i = 0; i < a.length; i++) difference |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return difference === 0;
 }
-function scannerConfig_() {
+function scannerTarget_() {
   var p = PropertiesService.getScriptProperties().getProperties();
   if (p.SCANNER_ENVIRONMENT !== 'staging' || !p.STAGING_SCRIPT_ID ||
       p.STAGING_SCRIPT_ID !== ScriptApp.getScriptId()) throw new Error('STAGING_ONLY');
   var id = p.STAGING_SPREADSHEET_ID;
-  if (!/^[A-Za-z0-9_-]{20,100}$/.test(id || '') || scannerDigest_(id) === SCANNER_PROTECTED_SHA256_) {
+  if (id !== SCANNER_STAGING_ID_ || scannerDigest_(id) === SCANNER_PROTECTED_SHA256_) {
     throw new Error('UNSAFE_TARGET');
   }
   var allow = JSON.parse(p.ALLOWED_STAGING_SPREADSHEET_IDS || '[]');
   if (!Array.isArray(allow) || allow.indexOf(id) < 0) throw new Error('UNSAFE_TARGET');
+  if (allow.length !== 1 || allow[0] !== SCANNER_STAGING_ID_) throw new Error('UNSAFE_TARGET');
+  return { id: id, properties: p };
+}
+function scannerConfig_() {
+  var target = scannerTarget_();
+  var p = target.properties;
   if (!/^[a-f0-9]{64}$/.test(p.BRIDGE_SIGNING_KEY || '') ||
       !/^[A-Za-z0-9_-]{16,100}$/.test(p.SCANNER_AUDIENCE || '')) throw new Error('NOT_CONFIGURED');
-  return { id: id, key: p.BRIDGE_SIGNING_KEY, audience: p.SCANNER_AUDIENCE,
+  return { id: target.id, key: p.BRIDGE_SIGNING_KEY, audience: p.SCANNER_AUDIENCE,
     writes: p.STAGING_WRITES_ENABLED === 'true' };
 }
 function scannerEnvelope_(text, config) {
@@ -70,8 +78,11 @@ function scannerCell_(value) {
   if (typeof value === 'number') return { userEnteredValue: { numberValue: value } };
   return { userEnteredValue: { stringValue: String(value == null ? '' : value) } };
 }
-function scannerAppend_(sheet, values) {
-  return { appendCells: { sheetId: sheet.getSheetId(), rows: [{ values: values.map(scannerCell_) }], fields: 'userEnteredValue' } };
+function scannerAppend_(sheet, values, dateFirst) {
+  var cells = values.map(scannerCell_);
+  if (dateFirst) cells[0].userEnteredFormat = { numberFormat: { type: 'DATE_TIME', pattern: 'dd-mmm-yyyy h:mm:ss' } };
+  return { appendCells: { sheetId: sheet.getSheetId(), rows: [{ values: cells }],
+    fields: dateFirst ? 'userEnteredValue,userEnteredFormat.numberFormat' : 'userEnteredValue' } };
 }
 function scannerResult_(code, request, row, h) {
   function iso(column) {
@@ -83,14 +94,23 @@ function scannerResult_(code, request, row, h) {
     attendeeName: String(row[h['Attendee Name']] || ''),
     entryTime: iso('Entry Time'), mealTime: iso('Meal Time') };
 }
+function scannerWorkbook_(id) {
+  // No bound/active spreadsheet fallback and no workbook creation.
+  if (id !== SCANNER_STAGING_ID_) throw new Error('UNSAFE_TARGET');
+  var ss = SpreadsheetApp.openById(SCANNER_STAGING_ID_);
+  if (ss.getId() !== SCANNER_STAGING_ID_ || ss.getName() !== SCANNER_STAGING_TITLE_ ||
+      ['Asia/Kolkata','Asia/Calcutta'].indexOf(ss.getSpreadsheetTimeZone()) < 0) {
+    throw new Error('SCHEMA_MISMATCH');
+  }
+  return ss;
+}
 function scannerRecord_(request, config) {
   if (!config.writes) return { code: 'WRITES_DISABLED', requestId: request.requestId };
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(10000)) return { code: 'BUSY_RETRY', requestId: request.requestId };
   try {
     // Explicit ID only, never SpreadsheetApp.getActive() fallback.
-    var ss = SpreadsheetApp.openById(config.id);
-    if (ss.getSpreadsheetTimeZone() !== 'Asia/Kolkata') throw new Error('SCHEMA_MISMATCH');
+    var ss = scannerWorkbook_(config.id);
     var attendees = ss.getSheetByName('Attendees');
     var activity = ss.getSheetByName('Activity');
     var requests = ss.getSheetByName('ScannerRequests');
@@ -134,7 +154,7 @@ function scannerRecord_(request, config) {
         fields: 'userEnteredValue,userEnteredFormat.numberFormat' } });
       operations.push(scannerAppend_(activity,[serial,row[h['Badge ID']],row[h['Registration ID']],
         row[h['Attendee Name']],row[h['Department']],request.action === 'GATE' ? 'gate' : 'food',
-        code.replace(/_/g,' '),request.deviceId,request.action,'Provisioned Scanner']));
+        code.replace(/_/g,' '),request.deviceId,request.action,'Provisioned Scanner'],true));
     }
     // One batch is atomic in Sheets: timestamp + audit + durable retry result.
     // ScriptLock coordinates requests within this new isolated project only.
@@ -157,3 +177,4 @@ function doPost(e) {
     return scannerJson_({ code: error && error.message === 'UNAUTHORIZED' ? 'SCANNER_NOT_AUTHORIZED' : 'BACKEND_ERROR' });
   }
 }
+
